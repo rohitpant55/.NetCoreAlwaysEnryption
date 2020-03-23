@@ -46,6 +46,8 @@ namespace AlwaysEncrypted
             // Delete all records to restart this demo app.
             ResetPatientsTable();
 
+            DoBulkInsertWithoutUDTT(MakeSampleTable());
+            //InsertStagingDataIntoMainTable(stgTableName);
             // Add sample data to the Patients table.
             Console.Write(Environment.NewLine + "Adding sample patient data to the database...");
             InsertPatient(new Patient()
@@ -248,6 +250,83 @@ namespace AlwaysEncrypted
             }
         }
 
+        private static DataTable MakeSampleTable()
+        {
+            DataTable newData = new DataTable();
+
+            // create columns in the DataTable
+            var idCol = new DataColumn()
+            {
+                DataType = Type.GetType("System.String"),
+                ColumnName = "SSN"
+            };
+
+            newData.Columns.Add(idCol);
+
+            var firstName = new DataColumn()
+            {
+                DataType = Type.GetType("System.String"),
+                ColumnName = "FirstName"
+            };
+
+            newData.Columns.Add(firstName);
+
+            var lastName = new DataColumn()
+            {
+                DataType = Type.GetType("System.String"),
+                ColumnName = "LastName"
+            };
+
+            newData.Columns.Add(lastName);
+
+            var dob = new DataColumn()
+            {
+                DataType = Type.GetType("System.DateTime"),
+                ColumnName = "BirthDate"
+            };
+
+            newData.Columns.Add(dob);
+
+            for (var loopCount = 0; loopCount < 5; loopCount++)
+            {
+                var datarowSample = newData.NewRow();
+
+                datarowSample["SSN"] = "999-99-010" + loopCount;
+                datarowSample["FirstName"] = "First" + loopCount;
+                datarowSample["LastName"] = "Last" + loopCount;
+                datarowSample["BirthDate"] = DateTime.Now.AddYears(-loopCount);
+
+                newData.Rows.Add(datarowSample);
+            }
+
+            newData.AcceptChanges();
+
+            return newData;
+        }
+
+        private static void DoBulkInsertWithoutUDTT(DataTable stagingData)
+        {
+            using (var conn = new SqlConnection(connectionString))
+            {
+                conn.Open();
+                try
+                {
+                    using var bulkCopy = new SqlBulkCopy(conn);
+                    foreach (DataColumn item in stagingData.Columns)
+                    {
+                        bulkCopy.ColumnMappings.Add(item.ColumnName, item.ColumnName);
+                    }
+
+                    bulkCopy.DestinationTableName = "Patients";
+                    bulkCopy.WriteToServer(stagingData);
+                }
+                catch (Exception ex)
+                {
+                    throw ex;
+                }
+            }
+        }
+
         static List<Patient> SelectAllPatients()
         {
             List<Patient> patients = new List<Patient>();
@@ -255,8 +334,6 @@ namespace AlwaysEncrypted
             SqlCommand sqlCmd = new SqlCommand(
               "SELECT [SSN], [FirstName], [LastName], [BirthDate] FROM [dbo].[Patients]",
                 new SqlConnection(connectionString));
-
-            using (sqlCmd.Connection = new SqlConnection(connectionString))
 
             using (sqlCmd.Connection = new SqlConnection(connectionString))
             {
